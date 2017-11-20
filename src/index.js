@@ -19,14 +19,16 @@ window.addEventListener("load", async () => {
   */
   const $MLN = "0xBEB9eF514a379B997e0798FDcC901Ee474B6D9A1";
   const $EOS = "0x86fa049857e0209aa7d9e616f7eb3b3b78ecfdb0";
+  const $TXP = "0xB97048628DB6B661D4C2aA833e95Dbe1A905B280";
+  const $ZRX = "0xe41d2489571d322189246dafa5ebde1f4699f498";
 
   /*
-    const MLNContract = new Contract($MLN, ERC20ABI, provider);
+    const ERC20 = new Contract($MLN, ERC20ABI, provider);
 
-  console.log(MLNContract);
+  console.log(ERC20);
 
   
-  MLNContract.Transfer = (author, value) => {
+  ERC20.Transfer = (author, value) => {
     console.log("Transfer", { author, value });
   };
 
@@ -37,22 +39,46 @@ window.addEventListener("load", async () => {
 
   const web3 = new Web3(window.web3.currentProvider);
 
-  const MLNContract = web3.eth.contract(ERC20ABI).at($EOS);
-  const filter = MLNContract.Transfer(
+  const ERC20 = web3.eth.contract(ERC20ABI).at($ZRX);
+
+  web3.eth.getBlockNumber((err, blockNumber) => {
+    let stepBlock = blockNumber;
+
+    const step = () =>
+      window.setTimeout(() => {
+        const fromBlock = Math.max(0, stepBlock - 10000);
+        getTokenBalancesStaggered(
+          ERC20,
+          fromBlock,
+          stepBlock,
+          fromBlock === 0 ? createHoldersCSV : step
+        );
+        stepBlock = fromBlock;
+      }, 500);
+    step();
+  });
+
+  // ERC20.balanceOf("0x1554aa0026292d03cfc8a2769df8dd4d169d590a");
+});
+
+const getTokenBalancesStaggered = (contract, fromBlock, toBlock, onFinish) => {
+  const filter = contract.Transfer(
     {},
     {
-      fromBlock: 0, //4500000, // 0,
-      toBlock: "latest"
+      fromBlock,
+      toBlock
     }
   );
+
   filter.get((err, logs) => {
-    console.log(logs);
+    console.log("Got", { fromBlock, toBlock, logs }, logs.length);
     let timeout = 0;
-    let csvTimeout = 0;
+
+    if (logs.length === 0) onFinish();
 
     logs.forEach((log, index) => {
       if (!window.holders.has(log.args._to)) {
-        MLNContract.balanceOf(log.args._to, (err, balance) => {
+        contract.balanceOf(log.args._to, (err, balance) => {
           if (balance.gt(0)) {
             window.holders.set(log.args._to, balance.div(10 ** 18));
           }
@@ -60,18 +86,24 @@ window.addEventListener("load", async () => {
           window.clearTimeout(timeout);
           timeout = window.setTimeout(() => {
             console.log("Got all balances", { log, index });
-            window.holders.forEach((balance, address) => {
-              window.holdersCsv += `${address},${balance.toFixed(4)},"EOS"\n`;
-
-              window.clearTimeout(csvTimeout);
-              csvTimeout = window.setTimeout(() => {
-                console.log(window.holdersCsv);
-              }, 1000);
-            });
+            onFinish();
           }, 1000);
         });
       }
     });
   });
-  // MLNContract.balanceOf("0x1554aa0026292d03cfc8a2769df8dd4d169d590a");
-});
+};
+
+const createHoldersCSV = () => {
+  let csvTimeout = 0;
+
+  window.holders.forEach((balance, address) => {
+    window.holdersCsv += `${address},${balance.toFixed(4)},"ZRX"\n`;
+
+    window.clearTimeout(csvTimeout);
+    csvTimeout = window.setTimeout(() => {
+      console.log(window.holdersCsv);
+      // onFinish(window.holdersCsv);
+    }, 1000);
+  });
+};
