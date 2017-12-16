@@ -11,6 +11,8 @@
     "react": "^16.1.1",
     "react-csv": "^1.0.8",
     "react-dom": "^16.1.1",
+    "request": "^2.83.0",
+    "request-promise": "^4.2.2",
     "sequelize": "^4.27.0",
     "web3": "0.20.1"
   },
